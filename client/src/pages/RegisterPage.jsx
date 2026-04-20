@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 const RegisterPage = () => {
   const { register } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ mobile: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -23,7 +23,7 @@ const RegisterPage = () => {
     }
     setLoading(true)
     try {
-      await register(form.username, form.email, form.password)
+      await register(form.mobile, form.password)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed')
@@ -47,7 +47,7 @@ const RegisterPage = () => {
         <div className="text-center mb-8">
           <div className="text-6xl mb-3 animate-float inline-block">✈️</div>
           <h1 className="text-4xl font-black gradient-text">AVIATOR</h1>
-          <p className="text-white/40 mt-1">Create your account — get ₹1,000 free!</p>
+          <p className="text-white/40 mt-1">Create your account</p>
         </div>
 
         <div className="glass rounded-2xl p-8">
@@ -63,28 +63,15 @@ const RegisterPage = () => {
             )}
 
             <div>
-              <label className="text-white/50 text-sm block mb-1.5">Username</label>
+              <label className="text-white/50 text-sm block mb-1.5">Mobile Number</label>
               <input
-                id="reg-username"
+                id="reg-mobile"
                 type="text"
                 required
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                value={form.mobile}
+                onChange={(e) => setForm({ ...form, mobile: e.target.value })}
                 className="input-field"
-                placeholder="pilot_007"
-              />
-            </div>
-
-            <div>
-              <label className="text-white/50 text-sm block mb-1.5">Email</label>
-              <input
-                id="reg-email"
-                type="email"
-                required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="input-field"
-                placeholder="pilot@example.com"
+                placeholder="10 digit mobile number"
               />
             </div>
 
@@ -126,7 +113,7 @@ const RegisterPage = () => {
                   Creating account…
                 </span>
               ) : (
-                'Create Account & Get ₹1,000 🎉'
+                'Create Account'
               )}
             </button>
           </form>

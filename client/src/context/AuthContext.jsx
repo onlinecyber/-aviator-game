@@ -29,8 +29,8 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const login = useCallback(async (email, password) => {
-    const { data } = await api.post('/api/auth/login', { email, password })
+  const login = useCallback(async (identifier, password) => {
+    const { data } = await api.post('/api/auth/login', { identifier, password })
     localStorage.setItem('aviator_token', data.token)
     api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
     setToken(data.token)
@@ -38,8 +38,8 @@ export const AuthProvider = ({ children }) => {
     return data
   }, [])
 
-  const register = useCallback(async (username, email, password) => {
-    const { data } = await api.post('/api/auth/register', { username, email, password })
+  const register = useCallback(async (mobile, password) => {
+    const { data } = await api.post('/api/auth/register', { mobile, password })
     localStorage.setItem('aviator_token', data.token)
     api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
     setToken(data.token)

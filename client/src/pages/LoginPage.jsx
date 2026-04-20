@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 const LoginPage = () => {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ identifier: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -15,7 +15,7 @@ const LoginPage = () => {
     setError('')
     setLoading(true)
     try {
-      await login(form.email, form.password)
+      await login(form.identifier, form.password)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Check your credentials.')
@@ -59,15 +59,15 @@ const LoginPage = () => {
             )}
 
             <div>
-              <label className="text-white/50 text-sm block mb-1.5">Email</label>
+              <label className="text-white/50 text-sm block mb-1.5">Mobile Number</label>
               <input
-                id="login-email"
-                type="email"
+                id="login-identifier"
+                type="text"
                 required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                value={form.identifier}
+                onChange={(e) => setForm({ ...form, identifier: e.target.value })}
                 className="input-field"
-                placeholder="your@email.com"
+                placeholder="10 digit mobile number"
               />
             </div>
 
