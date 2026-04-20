@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-[#0a0e1a] text-white font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-white/10 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-white/20; }
+}
+
+@layer components {
+  /* Glass card */
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply px-6 py-3 bg-brand-primary hover:bg-red-500 text-white font-semibold rounded-xl
+           transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
+           shadow-lg shadow-brand-primary/25 disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:hover:scale-100;
+  }
+
+  .btn-success {
+    @apply px-6 py-3 bg-brand-accent hover:bg-emerald-400 text-dark-400 font-bold rounded-xl
+           transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
+           shadow-lg shadow-brand-accent/25 disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:hover:scale-100;
+  }
+
+  .btn-outline {
+    @apply px-6 py-3 bg-transparent border border-white/20 hover:border-white/40 text-white
+           font-semibold rounded-xl transition-all duration-200 hover:bg-white/5;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg
+           transition-all duration-150;
+  }
+
+  /* Input */
+  .input-field {
+    @apply w-full px-4 py-3 bg-dark-400/80 border border-white/10 rounded-xl text-white
+           placeholder-white/30 focus:outline-none focus:border-brand-primary/60
+           focus:ring-2 focus:ring-brand-primary/20 transition-all duration-200;
+  }
+
+  /* Multiplier badge colors */
+  .crash-low {
+    @apply bg-brand-primary/20 text-brand-primary border border-brand-primary/30;
+  }
+
+  .crash-mid {
+    @apply bg-brand-gold/20 text-brand-gold border border-brand-gold/30;
+  }
+
+  .crash-high {
+    @apply bg-brand-accent/20 text-brand-accent border border-brand-accent/30;
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #e63946, #f4a261);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-green {
+    background: linear-gradient(135deg, #06d6a0, #4cc9f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 20px currentColor;
+  }
+
+  .border-glow {
+    box-shadow: 0 0 15px rgba(230, 57, 70, 0.3), inset 0 0 15px rgba(230, 57, 70, 0.05);
+  }
+
+  .border-glow-green {
+    box-shadow: 0 0 15px rgba(6, 214, 160, 0.3), inset 0 0 15px rgba(6, 214, 160, 0.05);
+  }
+}
