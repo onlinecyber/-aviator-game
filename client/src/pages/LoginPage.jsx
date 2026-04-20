@@ -110,12 +110,7 @@ const LoginPage = () => {
             </p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-4 glass-dark rounded-xl p-3 text-center">
-            <p className="text-white/30 text-xs">
-              Admin login: <span className="text-white/50">admin@aviator.com</span> / <span className="text-white/50">admin123</span>
-            </p>
-          </div>
+
         </div>
       </motion.div>
     </div>
