@@ -2,38 +2,81 @@ import PlaneCanvas from '../components/PlaneCanvas'
 import ActiveBetsList from '../components/ActiveBetsList'
 import GameHistoryBar from '../components/GameHistoryBar'
 import BetPanelDouble from '../components/BetPanelDouble'
+import ParticlesBackground from '../components/ParticlesBackground'
 
 const GamePage = () => {
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] bg-[#0a0e1a] overflow-hidden">
-      {/* TOP — History bar */}
-      <div className="flex-shrink-0 bg-[#0d1220] border-b border-white/5 px-3 py-1.5 z-20 shadow">
+    <div className="flex flex-col h-[calc(100vh-56px)] relative overflow-hidden" style={{ background: '#0b0f1a' }}>
+
+      {/* Particle layer */}
+      <ParticlesBackground />
+
+      {/* Grid-line layer */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 opacity-20"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(0,230,118,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,230,118,0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
+        }}
+      />
+
+      {/* ── TOP: History bar ── */}
+      <div
+        className="flex-shrink-0 px-3 py-2 z-20 relative"
+        style={{
+          background: 'rgba(8,12,24,0.9)',
+          borderBottom: '1px solid rgba(0,230,118,0.08)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
         <GameHistoryBar />
       </div>
 
-      {/* MIDDLE — Full width canvas */}
-      <div className="flex-1 relative overflow-hidden min-h-[30vh]">
+      {/* ── MIDDLE: Canvas ── */}
+      <div className="flex-1 relative overflow-hidden min-h-[28vh] z-10">
         <PlaneCanvas />
       </div>
 
-      {/* BOTTOM — Bet panels + Live bets */}
-      {/* On mobile: Scrollable vertically if needed or tightly packed. On Desktop: fixed height row */}
-      <div className="flex-shrink-0 bg-[#0d1220] border-t border-white/5 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden lg:h-[260px] relative z-20">
-        
-        {/* Bet panels */}
-        <div className="flex-shrink-0 p-3 w-full lg:w-[640px] flex items-center mb-4 lg:mb-0 pb-6 lg:pb-3 border-b lg:border-b-0 border-white/5">
-          <BetPanelDouble />
-        </div>
+      {/* ── BOTTOM: Bets + Live feed ── */}
+      <div
+        className="flex-shrink-0 z-20 relative"
+        style={{
+          background: 'rgba(8,12,24,0.95)',
+          borderTop: '1px solid rgba(0,230,118,0.1)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 -4px 40px rgba(0,0,0,0.5)',
+        }}
+      >
+        {/* Mobile: stacked. Desktop: side-by-side */}
+        <div className="flex flex-col lg:flex-row lg:h-[250px]">
 
-        {/* Divider Desktop */}
-        <div className="hidden lg:block w-px bg-white/5 flex-shrink-0" />
+          {/* Bet panels */}
+          <div className="flex-shrink-0 p-3 w-full lg:w-[560px]">
+            <BetPanelDouble />
+          </div>
 
-        {/* Live bets list */}
-        <div className="flex-1 overflow-hidden min-h-[200px] lg:min-h-0 relative">
-          <div className="absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-[#0d1220] to-transparent z-10 pointer-events-none lg:hidden" />
-          <ActiveBetsList />
+          {/* Divider */}
+          <div
+            className="hidden lg:block w-px"
+            style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,230,118,0.15), transparent)' }}
+          />
+
+          {/* Live bets */}
+          <div className="flex-1 overflow-hidden min-h-[180px] lg:min-h-0 relative">
+            {/* Fade mask top */}
+            <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none z-10"
+                 style={{ background: 'linear-gradient(to bottom, rgba(8,12,24,0.95), transparent)' }} />
+            <ActiveBetsList />
+          </div>
+
         </div>
       </div>
+
+      {/* Bottom safe‐area spacer for iOS */}
+      <div className="h-safe-b lg:hidden flex-shrink-0" />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Volume2, VolumeX } from 'lucide-react'
+import { Volume2, VolumeX, Wallet, LogOut, Menu, X, Zap, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { gameAudio } from '../utils/AudioEngine'
@@ -15,17 +15,17 @@ const Navbar = () => {
   const [isMuted, setIsMuted] = useState(gameAudio.isMuted)
 
   const handleToggleAudio = () => {
-    gameAudio.init() // Ensure started
+    gameAudio.init()
     const muted = gameAudio.toggleMute()
     setIsMuted(muted)
   }
 
   const navLinks = [
-    { path: '/', label: 'Game' },
-    { path: '/history', label: 'History' },
-    { path: '/leaderboard', label: 'Leaderboard' },
-    { path: '/wallet', label: 'Wallet' },
-    ...(user?.role === 'admin' ? [{ path: '/admin', label: 'Admin' }] : []),
+    { path: '/',            label: 'Play',        icon: '🎮' },
+    { path: '/history',     label: 'History',     icon: '📊' },
+    { path: '/leaderboard', label: 'Leaders',     icon: '🏆' },
+    { path: '/wallet',      label: 'Wallet',      icon: '💳' },
+    ...(user?.role === 'admin' ? [{ path: '/admin', label: 'Admin', icon: '⚙️' }] : []),
   ]
 
   const handleLogout = () => { logout(); navigate('/login') }
@@ -33,119 +33,178 @@ const Navbar = () => {
   if (!user) return null
 
   return (
-    <nav
-      className="h-14 flex items-center px-4 border-b border-white/5 sticky top-0 z-50"
-      style={{ background: '#0a0e1a' }}
-    >
-      {/* Logo */}
-      <Link to="/" className="flex items-center gap-2 mr-6">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xl">✈️</span>
-          <span
-            className="font-black text-lg tracking-widest"
+    <>
+      <nav
+        className="h-14 flex items-center px-4 sticky top-0 z-50 border-b border-white/5"
+        style={{
+          background: 'linear-gradient(to right, rgba(8,12,24,0.98), rgba(11,15,26,0.98))',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 1px 0 rgba(0,230,118,0.08), 0 4px 30px rgba(0,0,0,0.5)',
+        }}
+      >
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2.5 mr-6 group flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
             style={{
-              background: 'linear-gradient(90deg, #e63946, #ff6b81)',
+              background: 'linear-gradient(135deg, #ff1744, #ff6d00)',
+              boxShadow: '0 0 15px rgba(255,23,68,0.5)',
+            }}
+          >
+            ✈
+          </div>
+          <span
+            className="font-orbitron font-black text-base tracking-widest uppercase animate-neon-flicker"
+            style={{
+              background: 'linear-gradient(90deg, #ff1744, #ff6d00, #ffd700)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
           >
-            Aviator
+            AVIATOR
           </span>
-        </div>
-        <span className="hidden sm:flex items-center gap-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full px-2 py-0.5 text-yellow-400 text-[10px] font-bold">
-          How to play?
-        </span>
-      </Link>
-
-      {/* Nav links — desktop */}
-      <div className="hidden md:flex items-center gap-1 flex-1">
-        {navLinks.map((link) => (
-          <Link
-            key={link.path}
-            to={link.path}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-              location.pathname === link.path
-                ? 'bg-white/10 text-white'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
-            }`}
+          <span
+            className="hidden sm:block text-[9px] font-orbitron px-1.5 py-0.5 rounded font-bold tracking-widest"
+            style={{ background: 'rgba(255,23,68,0.15)', color: '#ff5252', border: '1px solid rgba(255,23,68,0.3)' }}
           >
-            {link.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Right */}
-      <div className="ml-auto flex items-center gap-3">
-        {/* Live dot */}
-        <div className="hidden sm:flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-[10px] text-white/30">{connected ? 'Live' : 'Offline'}</span>
-        </div>
-
-        {/* Balance */}
-        <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
-          style={{ background: '#1a2540', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <span className="text-yellow-400 text-xs">₹</span>
-          <span className="font-mono font-bold text-yellow-400 text-sm">
-            {(user?.balance || 0).toFixed(2)}
+            LIVE
           </span>
+        </Link>
+
+        {/* Nav links — desktop */}
+        <div className="hidden md:flex items-center gap-0.5 flex-1">
+          {navLinks.map((link) => {
+            const active = location.pathname === link.path
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 flex items-center gap-1.5 ${
+                  active
+                    ? 'text-neon-green'
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                }`}
+                style={active ? {
+                  background: 'rgba(0,230,118,0.08)',
+                  borderBottom: '2px solid rgba(0,230,118,0.6)',
+                  textShadow: '0 0 10px rgba(0,230,118,0.5)',
+                } : {}}
+              >
+                <span>{link.icon}</span>
+                <span>{link.label}</span>
+              </Link>
+            )
+          })}
         </div>
 
-        {/* Username */}
-        <span className="hidden sm:block text-white/50 text-xs">{user?.username}</span>
+        {/* Right */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Live status */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full border border-white/5 bg-black/20">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${connected ? 'bg-neon-green animate-pulse-fast' : 'bg-brand-primary'}`} />
+            <span className="text-[10px] font-mono" style={{ color: connected ? '#00e676' : '#ff5252' }}>
+              {connected ? 'LIVE' : 'OFF'}
+            </span>
+          </div>
 
-        {/* Audio Toggle */}
-        <button 
-          onClick={handleToggleAudio}
-          className="text-white/40 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
-        >
-           {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-        </button>
+          {/* Balance */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl cursor-pointer hover:scale-105 transition-transform"
+            style={{
+              background: 'rgba(255,215,0,0.08)',
+              border: '1px solid rgba(255,215,0,0.25)',
+            }}
+            onClick={() => navigate('/wallet')}
+          >
+            <Wallet size={12} className="text-neon-gold" />
+            <span className="font-mono font-black text-sm" style={{ color: '#ffd700' }}>
+              ₹{(user?.balance || 0).toFixed(2)}
+            </span>
+          </div>
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="text-white/30 hover:text-white text-xs px-2 py-1.5 rounded-lg hover:bg-white/5 transition-all"
-        >
-          Exit
-        </button>
+          {/* User chip */}
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+              style={{ background: 'linear-gradient(135deg, #cc44ff, #00e5ff)', color: '#000' }}
+            >
+              {user?.username?.[0]?.toUpperCase()}
+            </div>
+            <span className="text-white/70 text-xs font-semibold">{user?.username}</span>
+          </div>
 
-        {/* Mobile menu toggle */}
-        <button
-          className="md:hidden text-white/50 hover:text-white p-1"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          ☰
-        </button>
-      </div>
+          {/* Audio toggle */}
+          <button
+            onClick={handleToggleAudio}
+            className="p-2 rounded-lg transition-all hover:bg-white/5"
+            style={{ color: isMuted ? 'rgba(255,255,255,0.3)' : '#00e676' }}
+          >
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all"
+          >
+            <LogOut size={15} />
+          </button>
+
+          {/* Mobile menu toggle */}
+          <button
+            className="md:hidden p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-all"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
+      </nav>
 
       {/* Mobile menu */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="absolute top-14 left-0 right-0 bg-[#0d1220] border-b border-white/5 px-4 py-3 space-y-1 md:hidden"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="md:hidden fixed top-14 left-0 right-0 z-40 p-4 space-y-1"
+            style={{
+              background: 'rgba(8,12,24,0.97)',
+              backdropFilter: 'blur(20px)',
+              borderBottom: '1px solid rgba(0,230,118,0.1)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+            }}
           >
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 onClick={() => setMenuOpen(false)}
-                className={`block px-3 py-2 rounded-lg text-sm ${
-                  location.pathname === link.path ? 'bg-white/10 text-white' : 'text-white/50'
-                }`}
+                className="flex items-center justify-between px-4 py-3 rounded-xl transition-all"
+                style={location.pathname === link.path ? {
+                  background: 'rgba(0,230,118,0.08)',
+                  border: '1px solid rgba(0,230,118,0.2)',
+                  color: '#00e676',
+                } : {
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  color: 'rgba(255,255,255,0.7)',
+                }}
               >
-                {link.label}
+                <span className="flex items-center gap-3 text-sm font-semibold">
+                  <span>{link.icon}</span>
+                  <span>{link.label}</span>
+                </span>
+                <ChevronRight size={14} className="opacity-40" />
               </Link>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   )
 }
 
