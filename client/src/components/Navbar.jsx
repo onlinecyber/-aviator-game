@@ -49,7 +49,7 @@ const Navbar = () => {
             src={skyRushLogo}
             alt="SkyRush"
             className="h-9 w-auto object-contain transition-all duration-300 group-hover:scale-105"
-            style={{ filter: 'drop-shadow(0 0 8px rgba(255,23,68,0.5))' }}
+            style={{ mixBlendMode: 'multiply', filter: 'drop-shadow(0 0 8px rgba(255,23,68,0.4))' }}
           />
         </Link>
 

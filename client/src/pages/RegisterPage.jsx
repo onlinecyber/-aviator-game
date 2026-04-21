@@ -71,7 +71,7 @@ const RegisterPage = () => {
               src={skyRushLogo}
               alt="SkyRush"
               className="h-24 w-auto mx-auto object-contain"
-              style={{ filter: 'drop-shadow(0 0 20px rgba(255,23,68,0.55))' }}
+              style={{ mixBlendMode: 'multiply', filter: 'drop-shadow(0 0 20px rgba(255,23,68,0.5))' }}
             />
           </motion.div>
           <p className="text-white/35 text-xs font-orbitron tracking-[0.25em] uppercase mt-2">
