@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Volume2, VolumeX } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
+import { gameAudio } from '../utils/AudioEngine'
 
 const Navbar = () => {
   const { user, logout } = useAuth()
@@ -10,6 +12,13 @@ const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isMuted, setIsMuted] = useState(gameAudio.isMuted)
+
+  const handleToggleAudio = () => {
+    gameAudio.init() // Ensure started
+    const muted = gameAudio.toggleMute()
+    setIsMuted(muted)
+  }
 
   const navLinks = [
     { path: '/', label: 'Game' },
@@ -86,6 +95,14 @@ const Navbar = () => {
 
         {/* Username */}
         <span className="hidden sm:block text-white/50 text-xs">{user?.username}</span>
+
+        {/* Audio Toggle */}
+        <button 
+          onClick={handleToggleAudio}
+          className="text-white/40 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+        >
+           {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
 
         {/* Logout */}
         <button

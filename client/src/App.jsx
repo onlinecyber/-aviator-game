@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import { GameProvider } from './context/GameContext'
@@ -22,6 +23,7 @@ function App() {
           <GameProvider>
             <WalletProvider>
               <div className="min-h-screen flex flex-col">
+                <Toaster position="top-center" reverseOrder={false} />
                 <Navbar />
                 <main className="flex-1">
                   <Routes>

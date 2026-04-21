@@ -15,7 +15,10 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.24.0",
     "socket.io-client": "^4.7.5",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "lucide-react": "^0.400.0",
+    "react-hot-toast": "^2.4.1",
+    "use-sound": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

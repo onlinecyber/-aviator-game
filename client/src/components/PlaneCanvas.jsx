@@ -1,24 +1,32 @@
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
+import { gameAudio } from '../utils/AudioEngine'
 
 const PlaneCanvas = () => {
-  const { status, multiplier, lastCrashPoint } = useGame()
+  const { status, startTime, lastCrashPoint } = useGame()
   const canvasRef = useRef(null)
   const animRef = useRef(null)
+  const multiplierTextRef = useRef(null)
   const stateRef = useRef({ points: [], floatT: 0 })
 
   const isCrashed = status === 'CRASHED'
   const isRunning = status === 'RUNNING'
   const isWaiting = status === 'WAITING'
 
-  // Reset path on new round
+  // Reset path on new round & handle audio
   useEffect(() => {
     if (isWaiting) {
       stateRef.current.points = []
       stateRef.current.floatT = 0
     }
-  }, [isWaiting])
+    if (isRunning) {
+      gameAudio.startEngine()
+    }
+    if (isCrashed) {
+      gameAudio.playCrash()
+    }
+  }, [isWaiting, isRunning, isCrashed])
 
   // Canvas resize
   useEffect(() => {
@@ -122,7 +130,21 @@ const PlaneCanvas = () => {
         ctx.setLineDash([])
 
       } else if (isRunning || isCrashed) {
-        const m = multiplier || 1
+        // Elite 60fps Native Calculation
+        let m = 1.0;
+        if (isRunning && startTime) {
+          const elapsed = Date.now() - startTime;
+          m = Math.E ** (0.00006 * elapsed);
+          // Directly update the DOM node to bypass React Overhead completely.
+          if (multiplierTextRef.current) {
+            multiplierTextRef.current.innerText = `${m.toFixed(2)}x`;
+          }
+          // Update Audio Pitch
+          gameAudio.updateEngine(m);
+        } else if (isCrashed) {
+          m = lastCrashPoint || 1.0;
+        }
+
         const cur = mToPos(m, w, h)
 
         // Track the path
@@ -188,14 +210,20 @@ const PlaneCanvas = () => {
 
     drawFrame()
     return () => cancelAnimationFrame(animRef.current)
-  }, [status, multiplier, isRunning, isCrashed, isWaiting])
+  }, [status, startTime, isRunning, isCrashed, isWaiting, lastCrashPoint])
 
   return (
     <div className="relative w-full h-full">
-      <canvas
-        ref={canvasRef}
+      <motion.div
+        animate={isCrashed ? { x: [-10, 10, -10, 10, -5, 5, 0], y: [-5, 5, -5, 5, 0] } : {}}
+        transition={{ duration: 0.4 }}
         className="absolute inset-0 w-full h-full"
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full"
+        />
+      </motion.div>
 
       {/* Multiplier Display — center */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -210,7 +238,7 @@ const PlaneCanvas = () => {
                 className="text-center"
               >
                 <div className="text-brand-gold font-black text-xl tracking-widest uppercase animate-pulse mb-2">
-                  PLACE YOUR BETS
+                  STARTING NEXT ROUND
                 </div>
                 <div
                   className="font-black font-mono"
@@ -242,6 +270,7 @@ const PlaneCanvas = () => {
                 animate={{ opacity: 1 }}
               >
                 <div
+                  ref={multiplierTextRef}
                   className="font-black font-mono select-none"
                   style={{
                     fontSize: 'clamp(3.5rem, 9vw, 7rem)',
@@ -250,7 +279,7 @@ const PlaneCanvas = () => {
                     letterSpacing: '0.02em',
                   }}
                 >
-                  {(multiplier || 1).toFixed(2)}x
+                  1.00x
                 </div>
               </motion.div>
             )}
@@ -335,15 +364,21 @@ function drawPlane(ctx, cx, cy, angle, crashed, alpha = 1) {
   ctx.fillStyle = dark
   ctx.fill()
 
-  // Engine glow when flying
+  // Jet exhaust glow when flying
   if (!crashed) {
     ctx.shadowColor = '#ff6600'
-    ctx.shadowBlur = 12
+    ctx.shadowBlur = 15
     ctx.fillStyle = '#ff8800'
     ctx.beginPath()
-    ctx.arc(-26, 0, 4, 0, Math.PI * 2)
+    ctx.arc(-26, 0, 5, 0, Math.PI * 2)
     ctx.fill()
     ctx.shadowBlur = 0
+    
+    // Add blue/white inner core
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(-26, 0, 2, 0, Math.PI * 2)
+    ctx.fill()
   }
 
   ctx.restore()

@@ -1,15 +1,18 @@
 import { createContext, useContext, useEffect, useReducer, useRef } from 'react'
+import toast from 'react-hot-toast'
 import { useSocket } from './SocketContext'
 import { useAuth } from './AuthContext'
+import { gameAudio } from '../utils/AudioEngine'
 
 const GameContext = createContext(null)
 
 const initialState = {
   status: 'WAITING',         // 'WAITING' | 'RUNNING' | 'CRASHED'
   gameId: null,
-  multiplier: 1.0,
+  startTime: null,           // Used for true 60fps client-side calculation
+  serverSeedHash: null,
   bettingEndsIn: null,
-  history: [],               // [{ gameId, crashPoint, crashedAt }]
+  history: [],               // [{ gameId, crashPoint, crashedAt, serverSeed, clientSeed }]
   activeBets: [],            // [{ username, amount, autoCashout }]
   myBet: null,               // { betId, amount, autoCashout }
   cashedOut: false,
@@ -24,22 +27,24 @@ function gameReducer(state, action) {
         ...state,
         status: action.payload.status,
         gameId: action.payload.gameId,
-        multiplier: action.payload.multiplier ?? state.multiplier,
+        serverSeedHash: action.payload.serverSeedHash ?? state.serverSeedHash,
         bettingEndsIn: action.payload.bettingEndsIn ?? null,
         history: action.payload.history ?? state.history,
-        // Reset per-round state when a new WAITING phase starts
         ...(action.payload.status === 'WAITING' ? {
           myBet: null,
           cashedOut: false,
           lastCrashPoint: null,
           error: null,
+          startTime: null,
         } : {}),
       }
 
-    case 'GAME_TICK':
+    case 'GAME_STARTED':
       return {
         ...state,
-        multiplier: action.payload.multiplier,
+        status: 'RUNNING',
+        gameId: action.payload.gameId,
+        startTime: action.payload.startTime,
       }
 
     case 'GAME_CRASHED':
@@ -72,6 +77,15 @@ function gameReducer(state, action) {
     case 'PLAYERS_ACTIVE':
       return { ...state, activeBets: action.payload }
 
+    case 'PLAYER_CASHEDOUT': {
+      const updatedBets = state.activeBets.map((b) =>
+        b.username === action.payload.username
+          ? { ...b, cashedOutAt: action.payload.multiplier }
+          : b
+      )
+      return { ...state, activeBets: updatedBets }
+    }
+
     case 'SET_ERROR':
       return { ...state, error: action.payload }
 
@@ -98,16 +112,28 @@ export const GameProvider = ({ children }) => {
 
     const handlers = {
       'game:state': (data) => dispatch({ type: 'GAME_STATE', payload: data }),
-      'game:tick': (data) => dispatch({ type: 'GAME_TICK', payload: data }),
+      'game:started': (data) => dispatch({ type: 'GAME_STARTED', payload: data }),
       'game:crashed': (data) => dispatch({ type: 'GAME_CRASHED', payload: data }),
-      'bet:placed': (data) => dispatch({ type: 'BET_PLACED', payload: data }),
+      'bet:placed': (data) => {
+        dispatch({ type: 'BET_PLACED', payload: data })
+        toast.success(`Bet placed: ₹${data.amount}`)
+      },
       'bet:cashedout': (data) => {
         dispatch({ type: 'CASHED_OUT', payload: data })
         updateBalance(data.balance)
+        gameAudio.playCashout(data.winAmount)
+        toast.success(`Cashed out: +₹${data.profit} at ${data.multiplier}x`, {
+          icon: '🚀',
+          style: { background: '#10B981', color: '#fff', fontWeight: 'bold' }
+        })
       },
       'players:active': (data) => dispatch({ type: 'PLAYERS_ACTIVE', payload: data }),
+      'player:cashedout': (data) => dispatch({ type: 'PLAYER_CASHEDOUT', payload: data }),
       'wallet:updated': (data) => updateBalance(data.balance),
-      'bet:error': (data) => dispatch({ type: 'SET_ERROR', payload: data.message }),
+      'bet:error': (data) => {
+        dispatch({ type: 'SET_ERROR', payload: data.message })
+        toast.error(data.message)
+      },
     }
 
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler))

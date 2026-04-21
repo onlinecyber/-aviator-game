@@ -40,4 +40,8 @@ function verifyCrashPoint(serverSeed, clientSeed, claimedCrashPoint) {
   return Math.abs(computed - claimedCrashPoint) < 0.01;
 }
 
-module.exports = { generateCrashPoint, generateSeed, verifyCrashPoint };
+function generateHash(seed) {
+  return crypto.createHash('sha256').update(seed).digest('hex');
+}
+
+module.exports = { generateCrashPoint, generateSeed, verifyCrashPoint, generateHash };
