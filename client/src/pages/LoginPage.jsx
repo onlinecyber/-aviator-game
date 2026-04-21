@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Rocket, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import ParticlesBackground from '../components/ParticlesBackground'
+import skyRushLogo from '../assets/skyrush-logo.png'
 
 const LoginPage = () => {
   const { login }    = useAuth()
@@ -55,28 +56,16 @@ const LoginPage = () => {
           <motion.div
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,23,68,0.2), rgba(255,109,0,0.15))',
-              border: '1px solid rgba(255,23,68,0.3)',
-              boxShadow: '0 0 40px rgba(255,23,68,0.2)',
-              fontSize: '2.5rem',
-            }}
+            className="inline-block mb-2"
           >
-            ✈
+            <img
+              src={skyRushLogo}
+              alt="SkyRush"
+              className="h-24 w-auto mx-auto object-contain"
+              style={{ filter: 'drop-shadow(0 0 20px rgba(255,23,68,0.55))' }}
+            />
           </motion.div>
-          <h1
-            className="font-orbitron font-black text-4xl uppercase tracking-widest mb-2"
-            style={{
-              background: 'linear-gradient(135deg, #ff1744, #ff6d00, #ffd700)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: 'none',
-            }}
-          >
-            AVIATOR
-          </h1>
-          <p className="text-white/35 text-sm font-orbitron tracking-widest uppercase">
+          <p className="text-white/35 text-xs font-orbitron tracking-[0.25em] uppercase mt-2">
             Premium Crash Game
           </p>
         </div>

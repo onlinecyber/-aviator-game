@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Volume2, VolumeX, Wallet, LogOut, Menu, X, Zap, ChevronRight } from 'lucide-react'
+import { Volume2, VolumeX, Wallet, LogOut, Menu, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { gameAudio } from '../utils/AudioEngine'
+import skyRushLogo from '../assets/skyrush-logo.png'
 
 const Navbar = () => {
   const { user, logout } = useAuth()
@@ -43,32 +44,13 @@ const Navbar = () => {
         }}
       >
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 mr-6 group flex-shrink-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-            style={{
-              background: 'linear-gradient(135deg, #ff1744, #ff6d00)',
-              boxShadow: '0 0 15px rgba(255,23,68,0.5)',
-            }}
-          >
-            ✈
-          </div>
-          <span
-            className="font-orbitron font-black text-base tracking-widest uppercase animate-neon-flicker"
-            style={{
-              background: 'linear-gradient(90deg, #ff1744, #ff6d00, #ffd700)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            AVIATOR
-          </span>
-          <span
-            className="hidden sm:block text-[9px] font-orbitron px-1.5 py-0.5 rounded font-bold tracking-widest"
-            style={{ background: 'rgba(255,23,68,0.15)', color: '#ff5252', border: '1px solid rgba(255,23,68,0.3)' }}
-          >
-            LIVE
-          </span>
+        <Link to="/" className="flex items-center gap-2 mr-6 flex-shrink-0 group">
+          <img
+            src={skyRushLogo}
+            alt="SkyRush"
+            className="h-9 w-auto object-contain transition-all duration-300 group-hover:scale-105"
+            style={{ filter: 'drop-shadow(0 0 8px rgba(255,23,68,0.5))' }}
+          />
         </Link>
 
         {/* Nav links — desktop */}
