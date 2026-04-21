@@ -14,8 +14,7 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      unique: true,
-      sparse: true, // Allow multiple users with no email
+      sparse: true, // Allow multiple users with no email (no unique constraint)
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please use a valid email address'],
