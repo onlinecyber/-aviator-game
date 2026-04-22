@@ -14,16 +14,28 @@ const authLimiter = rateLimit({
 router.get('/setup-live-admin', async (req, res) => {
   try {
     const User = require('../models/User');
+    
+    // Fix: Forcefully drop the unique email index that causes E11000 errors
+    await User.collection.dropIndex('email_1').catch(err => console.log('Index already gone or error:', err.message));
+
     let user = await User.findOne({ username: 'admin' });
     if (!user) {
-      user = await User.create({ username: 'admin', password: 'admin123', role: 'admin', isActive: true });
-      return res.json({ success: true, message: 'Admin user created on live database!' });
+      user = await User.create({ 
+        username: 'admin', 
+        password: 'admin123', 
+        email: 'admin@aviator.com', // Unique email for admin
+        role: 'admin', 
+        isActive: true 
+      });
+      return res.json({ success: true, message: 'Admin user created and Email Index fixed!' });
     }
+
     user.role = 'admin';
     user.isActive = true;
-    user.password = 'admin123'; // Pre-save hook will hash this
+    user.email = 'admin@aviator.com';
+    user.password = 'admin123';
     await user.save();
-    return res.json({ success: true, message: 'Existing admin user upgraded and password reset on database!' });
+    return res.json({ success: true, message: 'Admin upgraded and Email Index fixed!' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
