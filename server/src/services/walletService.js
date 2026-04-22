@@ -8,8 +8,8 @@ const MAX_WITHDRAW = 500000;
 const MIN_WITHDRAW = 50;
 
 /* Our UPI ID / QR details — admin configures these */
-const UPI_ID      = process.env.UPI_ID      || 'aviator@upi';
-const UPI_NAME    = process.env.UPI_NAME    || 'Aviator Game';
+const UPI_ID      = process.env.UPI_ID      || '';
+const UPI_NAME    = process.env.UPI_NAME    || '';
 const UPI_QR_URL  = process.env.UPI_QR_URL  || null;
 
 /**

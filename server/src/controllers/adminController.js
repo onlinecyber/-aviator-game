@@ -362,6 +362,7 @@ const updatePaymentSettings = async (req, res) => {
     }
     
     setting.value = { upiIds: upiIds || [] };
+    setting.markModified('value');
     await setting.save();
     
     res.json({ success: true, settings: setting.value });
