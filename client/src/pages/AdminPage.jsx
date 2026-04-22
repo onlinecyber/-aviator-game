@@ -694,7 +694,7 @@ const SettingsTab = () => {
                   placeholder="e.g. yourname@ybl"
                   value={newUpi.upiId}
                   onChange={e => setNewUpi({ ...newUpi, upiId: e.target.value })}
-                  className="input-field w-full"
+                  className="w-full bg-black/50 border border-white/20 text-white placeholder-white/30 rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-all"
                 />
               </div>
               <div>
@@ -704,7 +704,7 @@ const SettingsTab = () => {
                   placeholder="e.g. Aviator Game"
                   value={newUpi.name}
                   onChange={e => setNewUpi({ ...newUpi, name: e.target.value })}
-                  className="input-field w-full"
+                  className="w-full bg-black/50 border border-white/20 text-white placeholder-white/30 rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-all"
                 />
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-2">
