@@ -31,6 +31,15 @@ const AdminLoginPage = () => {
     }
   }
 
+  const setupLiveAdmin = async () => {
+    try {
+      const res = await api.get('/api/auth/setup-live-admin')
+      setError('✅ ' + (res.data?.message || 'Success! Now login with admin / admin123'));
+    } catch(err) {
+      setError('❌ Setup Error: ' + err.message);
+    }
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -250,6 +259,12 @@ const AdminLoginPage = () => {
             <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '11px', margin: 0 }}>
               🔒 This area is restricted to authorized personnel only
             </p>
+            <button onClick={setupLiveAdmin} type="button" style={{
+               background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', 
+               color: 'rgba(255,255,255,0.2)', fontSize: '10px', marginTop: '10px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer'
+            }}>
+              [Setup Live Database]
+            </button>
           </div>
         </div>
 
