@@ -15,6 +15,7 @@ const getStats = async (req, res) => {
       revenueAgg,
       payoutAgg,
       todayBetsAgg,
+      pendingDeposits,
     ] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       User.countDocuments({ role: 'user', isActive: true }),
@@ -40,6 +41,7 @@ const getStats = async (req, res) => {
         },
         { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } },
       ]),
+      Transaction.countDocuments({ type: 'deposit', status: 'pending' }),
     ]);
 
     const totalBet = revenueAgg[0]?.total || 0;
@@ -57,6 +59,8 @@ const getStats = async (req, res) => {
         totalBet,
         totalPayout,
         houseProfit,
+        pendingWithdrawals,
+        pendingDeposits,
         todayBets: todayBetsAgg[0]?.total || 0,
       },
     });

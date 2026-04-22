@@ -270,6 +270,131 @@ const UsersTab = () => {
   )
 }
 
+// ─── Deposits Tab ─────────────────────────────────────────────────────────────
+const DepositsTab = () => {
+  const [deposits, setDeposits] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('pending')
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [msg, setMsg] = useState({ text: '', type: 'success' })
+
+  const fetchD = useCallback(async (p = 1) => {
+    setLoading(true)
+    try {
+      const r = await api.get(`/api/admin/deposits?status=${status}&page=${p}`)
+      setDeposits(r.data.deposits || [])
+      setPages(r.data.pages)
+      setPage(p)
+    } finally {
+      setLoading(false)
+    }
+  }, [status])
+
+  useEffect(() => { fetchD(1) }, [status])
+
+  const showMsg = (text, type = 'success') => {
+    setMsg({ text, type })
+    setTimeout(() => setMsg({ text: '', type: 'success' }), 3000)
+  }
+
+  const handleApprove = async (id) => {
+    try {
+      await api.patch(`/api/admin/deposits/${id}/approve`)
+      showMsg('Deposit approved & balance credited ✓', 'success')
+      fetchD(page)
+    } catch (err) {
+      showMsg(err.response?.data?.message || 'Approval failed', 'warn')
+    }
+  }
+
+  const handleReject = async (id) => {
+    const reason = window.prompt('Enter rejection reason:', 'Invalid UTR or payment not received')
+    if (reason === null) return
+    try {
+      await api.patch(`/api/admin/deposits/${id}/reject`, { reason })
+      showMsg('Deposit rejected ✓', 'warn')
+      fetchD(page)
+    } catch (err) {
+      showMsg('Rejection failed', 'warn')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {msg.text && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className={`border rounded-xl px-4 py-3 text-sm ${
+            msg.type === 'success' ? 'bg-brand-accent/10 border-brand-accent/30 text-brand-accent' : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+          }`}>
+          {msg.text}
+        </motion.div>
+      )}
+
+      <div className="flex gap-2">
+        {['pending', 'completed', 'rejected'].map((s) => (
+          <button key={s} onClick={() => setStatus(s)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-all ${
+              status === s ? 'bg-brand-primary text-white' : 'glass text-white/50 hover:text-white'
+            }`}>
+            {s === 'pending' ? '⏳' : s === 'completed' ? '✅' : '❌'} {s}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <Spinner /> : (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-white/40 border-b border-white/5 text-left">
+                  <th className="p-4">User / UTR</th>
+                  <th className="p-4">Amount</th>
+                  <th className="p-4 hidden sm:table-cell">Method</th>
+                  <th className="p-4 hidden md:table-cell">Time</th>
+                  {status === 'pending' && <th className="p-4">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {deposits.length === 0 ? (
+                  <tr><td colSpan={5} className="text-center py-12 text-white/30">No {status} deposits</td></tr>
+                ) : deposits.map((d) => (
+                  <tr key={d._id} className="hover:bg-white/2 transition-colors">
+                    <td className="p-4">
+                      <p className="font-semibold text-white">{d.userId?.username || '—'}</p>
+                      <p className="text-brand-accent text-[10px] font-mono uppercase tracking-tighter mt-1 bg-brand-accent/5 px-1.5 py-0.5 rounded border border-brand-accent/10 inline-block">
+                        UTR: {d.utrNumber}
+                      </p>
+                    </td>
+                    <td className="p-4 font-mono font-black text-brand-accent text-lg">{fmt(d.amount)}</td>
+                    <td className="p-4 hidden sm:table-cell">
+                      <span className="text-white/60 bg-white/5 px-2 py-1 rounded text-xs">{d.paymentMethod}</span>
+                    </td>
+                    <td className="p-4 text-white/40 text-xs hidden md:table-cell">{fmtDate(d.createdAt)}</td>
+                    {status === 'pending' && (
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <button onClick={() => handleApprove(d._id)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-accent/10 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent/20 transition-all">
+                            ✅ Approve
+                          </button>
+                          <button onClick={() => handleReject(d._id)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-primary/10 text-brand-primary border border-brand-primary/30 hover:bg-brand-primary/20 transition-all">
+                            ❌ Reject
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} pages={pages} onChange={fetchD} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Withdrawals Tab ──────────────────────────────────────────────────────────
 const WithdrawalsTab = () => {
   const [withdrawals, setWithdrawals] = useState([])
@@ -737,11 +862,13 @@ const AdminPage = () => {
   const [tab, setTab] = useState('overview')
   const [stats, setStats] = useState(null)
   const [pendingCount, setPendingCount] = useState(0)
+  const [pendingDepCount, setPendingDepCount] = useState(0)
 
   useEffect(() => {
     api.get('/api/admin/stats').then((r) => {
       setStats(r.data.stats)
       setPendingCount(r.data.stats.pendingWithdrawals)
+      setPendingDepCount(r.data.stats.pendingDeposits || 0)
     }).catch(console.error)
   }, [])
 
@@ -751,6 +878,7 @@ const AdminPage = () => {
       api.get('/api/admin/stats').then((r) => {
         setStats(r.data.stats)
         setPendingCount(r.data.stats.pendingWithdrawals)
+        setPendingDepCount(r.data.stats.pendingDeposits || 0)
       }).catch(() => {})
     }, 30000)
     return () => clearInterval(interval)
@@ -760,12 +888,25 @@ const AdminPage = () => {
     { id: 'overview', label: '📊 Overview' },
     { id: 'users', label: '👥 Users' },
     {
+      id: 'deposits',
+      label: (
+        <span className="flex items-center gap-2">
+          💰 Deposits
+          {pendingDepCount > 0 && (
+            <span className="bg-brand-accent text-dark-400 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+              {pendingDepCount}
+            </span>
+          )}
+        </span>
+      )
+    },
+    {
       id: 'withdrawals',
       label: (
         <span className="flex items-center gap-2">
           💸 Withdrawals
           {pendingCount > 0 && (
-            <span className="bg-yellow-500 text-dark-400 text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="bg-yellow-500 text-dark-400 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
               {pendingCount}
             </span>
           )}
@@ -819,6 +960,7 @@ const AdminPage = () => {
         >
           {tab === 'overview' && <OverviewTab stats={stats} />}
           {tab === 'users' && <UsersTab />}
+          {tab === 'deposits' && <DepositsTab />}
           {tab === 'withdrawals' && <WithdrawalsTab />}
           {tab === 'rounds' && <GameRoundsTab />}
           {tab === 'transactions' && <TransactionsTab />}
