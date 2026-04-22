@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 
 const AdminLoginPage = () => {
   const { login, logout } = useAuth()
