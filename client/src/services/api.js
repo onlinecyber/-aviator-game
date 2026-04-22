@@ -14,11 +14,14 @@ if (token) {
   api.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
-// Response interceptor — handle 401 globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Note: Don't redirect if the request itself was to the login or register endpoints.
+    // We want the forms to display the "Invalid credentials" error text safely instead of an instant page redirect.
+    const isAuthEndpoint = error.config?.url?.includes('/api/auth/login') || error.config?.url?.includes('/api/auth/register');
+    
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('aviator_token')
       delete api.defaults.headers.common['Authorization']
       window.location.href = '/login'
