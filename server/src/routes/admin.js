@@ -13,6 +13,8 @@ const {
   rejectWithdrawal,
   getGameRounds,
   getTransactions,
+  getPaymentSettings,
+  updatePaymentSettings,
 } = require('../controllers/adminController');
 const { protect }    = require('../middleware/auth');
 const { adminOnly }  = require('../middleware/adminAuth');
@@ -42,5 +44,9 @@ router.get('/games',        getGameRounds);
 
 // Transactions
 router.get('/transactions', getTransactions);
+
+// Settings
+router.get('/settings/payment', getPaymentSettings);
+router.put('/settings/payment', updatePaymentSettings);
 
 module.exports = router;

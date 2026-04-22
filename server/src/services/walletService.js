@@ -1,5 +1,6 @@
 const User        = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Setting     = require('../models/Setting');
 
 const MAX_DEPOSIT  = 1000000;
 const MIN_DEPOSIT  = 10;
@@ -103,15 +104,34 @@ const requestWithdraw = async (userId, { amount, withdrawMethod, upiId, bankAcco
 
 /**
  * GET /api/wallet/deposit/info
- * Returns UPI details for payment
+ * Returns UPI details for payment from Settings (picks a random active one if multiple)
  */
-const getDepositInfo = async () => ({
-  upiId:   UPI_ID,
-  name:    UPI_NAME,
-  qrUrl:   UPI_QR_URL,
-  minAmount: MIN_DEPOSIT,
-  maxAmount: MAX_DEPOSIT,
-});
+const getDepositInfo = async () => {
+  try {
+    const setting = await Setting.findOne({ key: 'payment_settings' });
+    let upiIds = setting?.value?.upiIds || [];
+    let activeUpis = upiIds.filter(u => u.isActive);
+
+    if (activeUpis.length === 0) {
+      // Fallback to env variables if no active UPIs are set in admin panel
+      if (!UPI_ID) throw new Error('No active UPI ID found');
+      return { upiId: UPI_ID, name: UPI_NAME, qrUrl: UPI_QR_URL, minAmount: MIN_DEPOSIT, maxAmount: MAX_DEPOSIT };
+    }
+
+    // Pick a random active UPI ID
+    const randomUpi = activeUpis[Math.floor(Math.random() * activeUpis.length)];
+    
+    return {
+      upiId:   randomUpi.upiId,
+      name:    randomUpi.name || 'Aviator Game',
+      minAmount: MIN_DEPOSIT,
+      maxAmount: MAX_DEPOSIT,
+    };
+  } catch (error) {
+    if (!UPI_ID) throw new Error('No active UPI ID found');
+    return { upiId: UPI_ID, name: UPI_NAME, qrUrl: UPI_QR_URL, minAmount: MIN_DEPOSIT, maxAmount: MAX_DEPOSIT };
+  }
+};
 
 /** GET /api/wallet/balance */
 const getBalance = async (userId) => {

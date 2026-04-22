@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Bet = require('../models/Bet');
 const Game = require('../models/Game');
+const Setting = require('../models/Setting');
 
 // @route GET /api/admin/stats
 const getStats = async (req, res) => {
@@ -336,6 +337,39 @@ const getTransactions = async (req, res) => {
   }
 };
 
+// @route GET /api/admin/settings/payment
+const getPaymentSettings = async (req, res) => {
+  try {
+    let setting = await Setting.findOne({ key: 'payment_settings' });
+    if (!setting) {
+      // Return default empty structure if not found
+      setting = { value: { upiIds: [] } };
+    }
+    res.json({ success: true, settings: setting.value });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @route PUT /api/admin/settings/payment
+const updatePaymentSettings = async (req, res) => {
+  try {
+    const { upiIds } = req.body;
+    
+    let setting = await Setting.findOne({ key: 'payment_settings' });
+    if (!setting) {
+      setting = new Setting({ key: 'payment_settings', value: { upiIds: [] } });
+    }
+    
+    setting.value = { upiIds: upiIds || [] };
+    await setting.save();
+    
+    res.json({ success: true, settings: setting.value });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getStats,
   getUsers,
@@ -349,4 +383,6 @@ module.exports = {
   rejectWithdrawal,
   getGameRounds,
   getTransactions,
+  getPaymentSettings,
+  updatePaymentSettings,
 };

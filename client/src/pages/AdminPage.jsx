@@ -567,6 +567,171 @@ const TransactionsTab = () => {
   )
 }
 
+// ─── Settings Tab ──────────────────────────────────────────────────────────────
+const SettingsTab = () => {
+  const [upiIds, setUpiIds] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState({ text: '', type: 'success' })
+
+  // New UPI form
+  const [newUpi, setNewUpi] = useState({ upiId: '', name: '', isActive: true })
+
+  const fetchSettings = async () => {
+    setLoading(true)
+    try {
+      const res = await api.get('/api/admin/settings/payment')
+      const fetched = res.data.settings?.upiIds || []
+      setUpiIds(fetched)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchSettings() }, [])
+
+  const showMsg = (text, type = 'success') => {
+    setMsg({ text, type })
+    setTimeout(() => setMsg({ text: '', type: 'success' }), 3000)
+  }
+
+  const handleSave = async (updatedUpis) => {
+    setSaving(true)
+    try {
+      const res = await api.put('/api/admin/settings/payment', { upiIds: updatedUpis })
+      setUpiIds(res.data.settings.upiIds || [])
+      showMsg('Payment settings saved ✓', 'success')
+    } catch (err) {
+      showMsg('Failed to save settings', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddUpi = (e) => {
+    e.preventDefault()
+    if (!newUpi.upiId) return
+    const updated = [...upiIds, { id: Date.now().toString(), ...newUpi }]
+    handleSave(updated)
+    setNewUpi({ upiId: '', name: '', isActive: true })
+  }
+
+  const handleToggle = (id) => {
+    const updated = upiIds.map(u => u.id === id ? { ...u, isActive: !u.isActive } : u)
+    handleSave(updated)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('Delete this UPI ID?')) return
+    const updated = upiIds.filter(u => u.id !== id)
+    handleSave(updated)
+  }
+
+  return (
+    <div className="space-y-6">
+      {msg.text && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className={`border rounded-xl px-4 py-3 text-sm ${
+            msg.type === 'success' ? 'bg-brand-accent/10 border-brand-accent/30 text-brand-accent' : 'bg-red-500/10 border-red-500/30 text-red-500'
+          }`}
+        >
+          {msg.text}
+        </motion.div>
+      )}
+
+      {loading ? <Spinner /> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Active UPI List */}
+          <div className="glass rounded-2xl p-6">
+            <h3 className="font-bold text-white/70 text-sm uppercase tracking-wider mb-4 flex items-center justify-between">
+              <span>Managed UPI IDs</span>
+              <span className="bg-brand-primary/20 text-brand-primary px-2 py-0.5 rounded text-xs">
+                {upiIds.filter(u => u.isActive).length} Active
+              </span>
+            </h3>
+
+            <div className="space-y-3">
+              {upiIds.length === 0 ? (
+                <p className="text-white/30 text-sm text-center py-4">No UPI IDs added yet.</p>
+              ) : upiIds.map(u => (
+                <div key={u.id} className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+                  u.isActive ? 'bg-white/5 border-white/10' : 'bg-black/20 border-white/5 opacity-50'
+                }`}>
+                  <div>
+                    <p className={`font-mono text-sm ${u.isActive ? 'text-white' : 'text-white/50'}`}>{u.upiId}</p>
+                    <p className="text-white/40 text-xs mt-0.5">{u.name || 'No Name'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggle(u.id)}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg ${
+                        u.isActive ? 'bg-brand-primary/20 text-brand-primary' : 'bg-white/10 text-white/50'
+                      }`}
+                      disabled={saving}
+                    >
+                      {u.isActive ? 'ON' : 'OFF'}
+                    </button>
+                    <button onClick={() => handleDelete(u.id)} className="px-2 py-1 text-xs text-red-400 hover:bg-red-500/20 rounded-lg">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Add New UPI Form */}
+          <div className="glass rounded-2xl p-6">
+            <h3 className="font-bold text-white/70 text-sm uppercase tracking-wider mb-4">
+              Add New UPI ID
+            </h3>
+            <form onSubmit={handleAddUpi} className="space-y-4">
+              <div>
+                <label className="block text-white/40 text-xs font-bold uppercase tracking-wider mb-2">UPI ID</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. yourname@ybl"
+                  value={newUpi.upiId}
+                  onChange={e => setNewUpi({ ...newUpi, upiId: e.target.value })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-white/40 text-xs font-bold uppercase tracking-wider mb-2">Display Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Aviator Game"
+                  value={newUpi.name}
+                  onChange={e => setNewUpi({ ...newUpi, name: e.target.value })}
+                  className="input-field w-full"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  checked={newUpi.isActive}
+                  onChange={e => setNewUpi({ ...newUpi, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded border-white/20 bg-black/40 text-brand-primary"
+                />
+                <span className="text-sm text-white/70">Set as Active immediately</span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={saving || !newUpi.upiId}
+                className="w-full btn-primary py-3 mt-2"
+              >
+                {saving ? 'Saving...' : 'Add UPI ID ➕'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 const AdminPage = () => {
   const [tab, setTab] = useState('overview')
@@ -609,6 +774,7 @@ const AdminPage = () => {
     },
     { id: 'rounds', label: '🎮 Game Rounds' },
     { id: 'transactions', label: '💳 Transactions' },
+    { id: 'settings', label: '⚙️ Settings' },
   ]
 
   return (
@@ -656,6 +822,7 @@ const AdminPage = () => {
           {tab === 'withdrawals' && <WithdrawalsTab />}
           {tab === 'rounds' && <GameRoundsTab />}
           {tab === 'transactions' && <TransactionsTab />}
+          {tab === 'settings' && <SettingsTab />}
         </motion.div>
       </AnimatePresence>
     </div>
