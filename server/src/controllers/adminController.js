@@ -161,6 +161,75 @@ const getWithdrawals = async (req, res) => {
   }
 };
 
+// @route GET /api/admin/deposits?status=pending
+const getDeposits = async (req, res) => {
+  try {
+    const status = req.query.status || 'pending';
+    const page   = parseInt(req.query.page) || 1;
+    const limit  = 20;
+    const skip   = (page - 1) * limit;
+
+    const [deposits, total] = await Promise.all([
+      Transaction.find({ type: 'deposit', status })
+        .sort({ createdAt: -1 }).skip(skip).limit(limit)
+        .populate('userId', 'username email balance').lean(),
+      Transaction.countDocuments({ type: 'deposit', status }),
+    ]);
+
+    res.json({ success: true, deposits, total, page, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @route PATCH /api/admin/deposits/:id/approve  — credits balance to user
+const approveDeposit = async (req, res) => {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx || tx.type !== 'deposit')
+      return res.status(404).json({ success: false, message: 'Deposit not found' });
+    if (tx.status !== 'pending')
+      return res.status(400).json({ success: false, message: 'Already processed' });
+
+    // Credit balance
+    const user = await User.findByIdAndUpdate(
+      tx.userId,
+      { $inc: { balance: tx.amount } },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    tx.status      = 'completed';
+    tx.balanceAfter = user.balance;
+    tx.approvedAt  = new Date();
+    tx.adminNote   = req.body.note || 'Approved by admin';
+    await tx.save();
+
+    res.json({ success: true, message: `Deposit of ₹${tx.amount} approved for ${user.username}` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @route PATCH /api/admin/deposits/:id/reject
+const rejectDeposit = async (req, res) => {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx || tx.type !== 'deposit')
+      return res.status(404).json({ success: false, message: 'Deposit not found' });
+    if (tx.status !== 'pending')
+      return res.status(400).json({ success: false, message: 'Already processed' });
+
+    tx.status           = 'rejected';
+    tx.rejectionReason  = req.body.reason || 'Invalid UTR or payment not received';
+    await tx.save();
+
+    res.json({ success: true, message: 'Deposit rejected' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // @route PATCH /api/admin/withdrawals/:id/approve
 const approveWithdrawal = async (req, res) => {
   try {
@@ -170,11 +239,12 @@ const approveWithdrawal = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Already processed' });
     }
 
-    tx.status = 'completed';
-    tx.description = tx.description + ' — APPROVED by admin';
+    tx.status      = 'completed';
+    tx.approvedAt  = new Date();
+    tx.adminNote   = req.body.note || 'Approved by admin';
     await tx.save();
 
-    res.json({ success: true, message: 'Withdrawal approved' });
+    res.json({ success: true, message: 'Withdrawal approved — please transfer manually' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -189,7 +259,7 @@ const rejectWithdrawal = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Already processed' });
     }
 
-    // Refund the amount back to user
+    // Refund the held amount back to user
     const refundAmount = Math.abs(tx.amount);
     const user = await User.findByIdAndUpdate(
       tx.userId._id,
@@ -197,22 +267,22 @@ const rejectWithdrawal = async (req, res) => {
       { new: true }
     );
 
-    tx.status = 'failed';
-    tx.description = tx.description + ' — REJECTED by admin (refunded)';
+    tx.status          = 'rejected';
+    tx.rejectionReason = req.body.reason || 'Rejected by admin';
     await tx.save();
 
     // Create refund transaction
     await Transaction.create({
-      userId: tx.userId._id,
-      type: 'refund',
-      amount: refundAmount,
+      userId:        tx.userId._id,
+      type:          'refund',
+      amount:        refundAmount,
       balanceBefore: user.balance - refundAmount,
-      balanceAfter: user.balance,
-      description: `Refund for rejected withdrawal`,
-      status: 'completed',
+      balanceAfter:  user.balance,
+      description:   `Refund for rejected withdrawal — ₹${refundAmount}`,
+      status:        'completed',
     });
 
-    res.json({ success: true, message: 'Withdrawal rejected and amount refunded' });
+    res.json({ success: true, message: 'Withdrawal rejected and amount refunded to user' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -271,6 +341,9 @@ module.exports = {
   getUsers,
   adjustBalance,
   toggleUserStatus,
+  getDeposits,
+  approveDeposit,
+  rejectDeposit,
   getWithdrawals,
   approveWithdrawal,
   rejectWithdrawal,

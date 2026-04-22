@@ -1,82 +1,116 @@
+import { useNavigate } from 'react-router-dom'
+import { useRef } from 'react'
 import PlaneCanvas from '../components/PlaneCanvas'
 import ActiveBetsList from '../components/ActiveBetsList'
 import GameHistoryBar from '../components/GameHistoryBar'
 import BetPanelDouble from '../components/BetPanelDouble'
-import ParticlesBackground from '../components/ParticlesBackground'
+import { useAuth } from '../context/AuthContext'
+import { useSocket } from '../context/SocketContext'
 
 const GamePage = () => {
+  const navigate  = useNavigate()
+  const { user }  = useAuth()
+  const { connected } = useSocket()
+  const roundIdRef = useRef(Math.floor(Math.random() * 90000000 + 10000000))
+
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] relative overflow-hidden" style={{ background: '#0b0f1a' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: 'calc(100vh - 0px)',
+      background: '#111827',
+      overflow: 'hidden',
+    }}>
 
-      {/* Particle layer */}
-      <ParticlesBackground />
+      {/* ── TOP BAR: Back + Round ID + Ping ── */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '6px 10px',
+        background: '#0f1420',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
 
-      {/* Grid-line layer */}
-      <div
-        className="absolute inset-0 pointer-events-none z-0 opacity-20"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(0,230,118,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,230,118,0.04) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px',
-        }}
-      />
+        {/* Back button */}
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            width: '30px', height: '30px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: '#ffffff',
+            fontSize: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          ←
+        </button>
 
-      {/* ── TOP: History bar ── */}
-      <div
-        className="flex-shrink-0 px-3 py-2 z-20 relative"
-        style={{
-          background: 'rgba(8,12,24,0.9)',
-          borderBottom: '1px solid rgba(0,230,118,0.08)',
-          backdropFilter: 'blur(12px)',
-        }}
-      >
+        {/* Round ID */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1 }}>
+          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px' }}>Round ID:</span>
+          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '10px', fontWeight: 600 }}>
+            {roundIdRef.current}
+          </span>
+          <span style={{ fontSize: '11px' }}>💎</span>
+        </div>
+
+        {/* Connection status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{
+            width: '6px', height: '6px', borderRadius: '50%',
+            background: connected ? '#2ecc40' : '#e53935',
+          }} />
+          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px' }}>
+            {connected ? 'LIVE' : 'OFF'}
+          </span>
+        </div>
+
+        {/* Ping */}
+        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>
+          Ping: <span style={{ color: 'rgba(255,255,255,0.55)' }}>32ms</span>
+        </span>
+      </div>
+
+      {/* ── History bar ── */}
+      <div style={{
+        flexShrink: 0,
+        padding: '5px 10px',
+        background: '#0f1420',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+      }}>
         <GameHistoryBar />
       </div>
 
-      {/* ── MIDDLE: Canvas ── */}
-      <div className="flex-1 relative overflow-hidden min-h-[28vh] z-10">
+      {/* ── Canvas ── */}
+      <div style={{
+        flex: '1 1 0', minHeight: '220px', maxHeight: '45vh',
+        position: 'relative', overflow: 'hidden',
+      }}>
         <PlaneCanvas />
       </div>
 
-      {/* ── BOTTOM: Bets + Live feed ── */}
-      <div
-        className="flex-shrink-0 z-20 relative"
-        style={{
-          background: 'rgba(8,12,24,0.95)',
-          borderTop: '1px solid rgba(0,230,118,0.1)',
-          backdropFilter: 'blur(20px)',
-          boxShadow: '0 -4px 40px rgba(0,0,0,0.5)',
-        }}
-      >
-        {/* Mobile: stacked. Desktop: side-by-side */}
-        <div className="flex flex-col lg:flex-row lg:h-[250px]">
+      {/* ── Scrollable bottom: bet panels + bets list ── */}
+      <div style={{ flex: '1 1 0', overflowY: 'auto', background: '#111827', scrollbarWidth: 'none' }}>
 
-          {/* Bet panels */}
-          <div className="flex-shrink-0 p-3 w-full lg:w-[560px]">
-            <BetPanelDouble />
-          </div>
+        {/* Bet panels */}
+        <div style={{ padding: '10px 0 4px' }}>
+          <BetPanelDouble />
+        </div>
 
-          {/* Divider */}
-          <div
-            className="hidden lg:block w-px"
-            style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,230,118,0.15), transparent)' }}
-          />
-
-          {/* Live bets */}
-          <div className="flex-1 overflow-hidden min-h-[180px] lg:min-h-0 relative">
-            {/* Fade mask top */}
-            <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none z-10"
-                 style={{ background: 'linear-gradient(to bottom, rgba(8,12,24,0.95), transparent)' }} />
-            <ActiveBetsList />
-          </div>
-
+        {/* Bets list */}
+        <div style={{ padding: '0 10px 16px' }}>
+          <ActiveBetsList />
         </div>
       </div>
 
-      {/* Bottom safe‐area spacer for iOS */}
-      <div className="h-safe-b lg:hidden flex-shrink-0" />
     </div>
   )
 }

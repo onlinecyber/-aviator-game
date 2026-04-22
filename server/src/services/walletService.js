@@ -1,77 +1,126 @@
-const User = require('../models/User');
+const User        = require('../models/User');
 const Transaction = require('../models/Transaction');
 
-const MAX_DEPOSIT = 1000000;
-const MIN_DEPOSIT = 10;
+const MAX_DEPOSIT  = 1000000;
+const MIN_DEPOSIT  = 10;
 const MAX_WITHDRAW = 500000;
 const MIN_WITHDRAW = 50;
 
+/* Our UPI ID / QR details — admin configures these */
+const UPI_ID      = process.env.UPI_ID      || 'aviator@upi';
+const UPI_NAME    = process.env.UPI_NAME    || 'Aviator Game';
+const UPI_QR_URL  = process.env.UPI_QR_URL  || null;
+
 /**
- * Deposit funds to a user account
+ * POST /api/wallet/deposit/request
+ * User submits amount + UTR number after paying.
+ * Creates a PENDING transaction — admin approves.
  */
-const deposit = async (userId, amount) => {
+const requestDeposit = async (userId, { amount, utrNumber, paymentMethod }) => {
   amount = parseFloat(amount);
 
-  if (!amount || amount < MIN_DEPOSIT || amount > MAX_DEPOSIT) {
-    throw new Error(`Deposit must be between ${MIN_DEPOSIT} and ${MAX_DEPOSIT}`);
-  }
+  if (!amount || amount < MIN_DEPOSIT || amount > MAX_DEPOSIT)
+    throw new Error(`Amount must be ₹${MIN_DEPOSIT} – ₹${MAX_DEPOSIT.toLocaleString()}`);
 
-  const user = await User.findByIdAndUpdate(
-    userId,
-    { $inc: { balance: amount } },
-    { new: true }
-  );
+  if (!utrNumber || utrNumber.trim().length < 6)
+    throw new Error('Valid UTR / Transaction ID is required');
 
+  // Check duplicate UTR
+  const exists = await Transaction.findOne({ utrNumber: utrNumber.trim(), type: 'deposit' });
+  if (exists) throw new Error('This UTR number has already been submitted');
+
+  const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
-  await Transaction.create({
+  const tx = await Transaction.create({
     userId,
-    type: 'deposit',
+    type:          'deposit',
     amount,
-    balanceBefore: user.balance - amount,
-    balanceAfter: user.balance,
-    description: `Manual deposit of ${amount}`,
-    status: 'completed',
+    balanceBefore: user.balance,
+    balanceAfter:  user.balance,      // not credited yet
+    status:        'pending',
+    utrNumber:     utrNumber.trim(),
+    paymentMethod: paymentMethod || 'UPI',
+    description:   `Deposit ₹${amount} via ${paymentMethod || 'UPI'} — UTR: ${utrNumber.trim()}`,
   });
 
-  return { balance: user.balance };
+  return {
+    message:  'Deposit request submitted! It will be credited within 30 minutes after verification.',
+    txId:     tx._id,
+    status:   'pending',
+  };
 };
 
 /**
- * Withdraw — creates PENDING transaction for admin approval.
- * Balance is held (deducted) immediately until approved/rejected.
+ * POST /api/wallet/withdraw/request
+ * User submits amount + bank/UPI details.
+ * Balance is held immediately, admin approves transfer.
  */
-const withdraw = async (userId, amount) => {
+const requestWithdraw = async (userId, { amount, withdrawMethod, upiId, bankAccount, bankIfsc, bankName, accountHolder }) => {
   amount = parseFloat(amount);
 
-  if (!amount || amount < MIN_WITHDRAW || amount > MAX_WITHDRAW) {
-    throw new Error(`Withdrawal must be between ${MIN_WITHDRAW} and ${MAX_WITHDRAW}`);
+  if (!amount || amount < MIN_WITHDRAW || amount > MAX_WITHDRAW)
+    throw new Error(`Amount must be ₹${MIN_WITHDRAW} – ₹${MAX_WITHDRAW.toLocaleString()}`);
+
+  if (withdrawMethod === 'upi') {
+    if (!upiId || !upiId.includes('@'))
+      throw new Error('Valid UPI ID required (e.g. name@upi)');
+  } else {
+    if (!bankAccount || bankAccount.length < 9) throw new Error('Valid bank account number required');
+    if (!bankIfsc    || bankIfsc.length !== 11)  throw new Error('Valid IFSC code required (11 characters)');
+    if (!accountHolder) throw new Error('Account holder name required');
   }
 
+  // Deduct balance immediately (holds funds)
   const user = await User.findOneAndUpdate(
     { _id: userId, balance: { $gte: amount } },
     { $inc: { balance: -amount } },
     { new: true }
   );
-
   if (!user) throw new Error('Insufficient balance');
 
   await Transaction.create({
     userId,
-    type: 'withdraw',
-    amount: -amount,
-    balanceBefore: user.balance + amount,
-    balanceAfter: user.balance,
-    description: `Withdrawal request of ₹${amount} — pending admin approval`,
-    status: 'pending',
+    type:           'withdraw',
+    amount:         -amount,
+    balanceBefore:  user.balance + amount,
+    balanceAfter:   user.balance,
+    status:         'pending',
+    withdrawMethod,
+    upiId:          withdrawMethod === 'upi' ? upiId : null,
+    bankAccount:    withdrawMethod === 'bank' ? bankAccount : null,
+    bankIfsc:       withdrawMethod === 'bank' ? bankIfsc?.toUpperCase() : null,
+    bankName:       withdrawMethod === 'bank' ? bankName : null,
+    accountHolder:  withdrawMethod === 'bank' ? accountHolder : null,
+    description:    `Withdrawal ₹${amount} via ${withdrawMethod?.toUpperCase()} — pending approval`,
   });
 
-  return { balance: user.balance, message: 'Withdrawal request submitted. Awaiting admin approval.' };
+  return {
+    balance: user.balance,
+    message: 'Withdrawal request submitted! Processing in 24 hours.',
+  };
 };
 
 /**
- * Get user transaction history
+ * GET /api/wallet/deposit/info
+ * Returns UPI details for payment
  */
+const getDepositInfo = async () => ({
+  upiId:   UPI_ID,
+  name:    UPI_NAME,
+  qrUrl:   UPI_QR_URL,
+  minAmount: MIN_DEPOSIT,
+  maxAmount: MAX_DEPOSIT,
+});
+
+/** GET /api/wallet/balance */
+const getBalance = async (userId) => {
+  const user = await User.findById(userId).select('balance');
+  if (!user) throw new Error('User not found');
+  return { balance: user.balance };
+};
+
+/** GET /api/wallet/transactions */
 const getTransactions = async (userId, page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
   const [transactions, total] = await Promise.all([
@@ -85,4 +134,10 @@ const getTransactions = async (userId, page = 1, limit = 20) => {
   return { transactions, total, page, pages: Math.ceil(total / limit) };
 };
 
-module.exports = { deposit, withdraw, getTransactions };
+module.exports = {
+  requestDeposit,
+  requestWithdraw,
+  getDepositInfo,
+  getBalance,
+  getTransactions,
+};

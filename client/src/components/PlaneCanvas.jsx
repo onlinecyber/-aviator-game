@@ -3,44 +3,37 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { gameAudio } from '../utils/AudioEngine'
 
-/* ─── Colour palette (matches new design system) ─────────── */
-const C = {
-  lineFly:    '#00e676',
-  lineGlow:   '#00ff87',
-  lineCrash:  '#ff1744',
-  fillFly:    'rgba(0,230,118,',
-  fillCrash:  'rgba(255,23,68,',
-  plane:      '#00e676',
-  planeCrash: '#ff1744',
-  bg1:        '#0b0f1a',
-  bg2:        '#07091380',
-  gridDot:    'rgba(0,230,118,0.07)',
-  axis:       'rgba(0,230,118,0.1)',
-}
-
 const PlaneCanvas = () => {
   const { status, startTime, lastCrashPoint } = useGame()
-  const canvasRef       = useRef(null)
-  const animRef         = useRef(null)
-  const multiplierRef   = useRef(null)
-  const statusRef       = useRef(null)
-  const stateRef        = useRef({ points: [], floatT: 0 })
+  const canvasRef     = useRef(null)
+  const animRef       = useRef(null)
+  const multiplierRef = useRef(null)
+
+  // Main state
+  const stateRef = useRef({
+    points: [],
+    floatT: 0,
+    // Crash fly-up animation
+    crashPlane: null,   // { x, y, vx, vy, angle } — plane flies off screen after crash
+    crashDone: false,
+  })
 
   const isCrashed = status === 'CRASHED'
   const isRunning = status === 'RUNNING'
   const isWaiting = status === 'WAITING'
 
-  /* Audio + path reset on phase change */
   useEffect(() => {
     if (isWaiting) {
-      stateRef.current.points = []
-      stateRef.current.floatT = 0
+      stateRef.current.points    = []
+      stateRef.current.floatT    = 0
+      stateRef.current.crashPlane = null
+      stateRef.current.crashDone  = false
     }
-    if (isRunning)  gameAudio.startEngine()
-    if (isCrashed)  gameAudio.playCrash()
+    if (isRunning) gameAudio.startEngine()
+    if (isCrashed) gameAudio.playCrash()
   }, [isWaiting, isRunning, isCrashed])
 
-  /* HiDPI canvas resize */
+  // HiDPI resize
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -48,8 +41,7 @@ const PlaneCanvas = () => {
       const dpr = window.devicePixelRatio || 1
       canvas.width  = canvas.offsetWidth  * dpr
       canvas.height = canvas.offsetHeight * dpr
-      const ctx = canvas.getContext('2d')
-      ctx.scale(dpr, dpr)
+      canvas.getContext('2d').scale(dpr, dpr)
     }
     resize()
     const obs = new ResizeObserver(resize)
@@ -57,7 +49,7 @@ const PlaneCanvas = () => {
     return () => obs.disconnect()
   }, [])
 
-  /* Main rAF loop */
+  // Main animation loop
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -65,349 +57,303 @@ const PlaneCanvas = () => {
 
     const W  = () => canvas.offsetWidth
     const H  = () => canvas.offsetHeight
-    const OX = () => W() * 0.06
-    const OY = () => H() * 0.86
+    const OX = () => W() * 0.08
+    const OY = () => H() * 0.88
 
-    /* Convert multiplier → canvas XY (logarithmic scale) */
+    /**
+     * mToPos — converts multiplier to canvas coordinates.
+     * Using Math.log(30) (smaller base) so the curve moves FASTER visually.
+     * Extra boost: curve starts steeper from origin.
+     */
     const mToPos = (m, w, h) => {
-      const ox = w * 0.06, oy = h * 0.86
-      const t = Math.min(Math.log(Math.max(m, 1)) / Math.log(200), 1)
-      const x = ox + t * (w * 0.89)
-      const y = oy - (t * 0.45 + Math.pow(t, 1.75) * 0.55) * (h * 0.80)
+      const ox = w * 0.08, oy = h * 0.88
+      // Faster: divide by log(30) instead of log(150)
+      const t = Math.min(Math.log(Math.max(m, 1)) / Math.log(30), 1)
+      // Curve shape: starts steep, flattens at top-right
+      const x = ox + t * (w * 0.87)
+      const y = oy - (t * 0.35 + Math.pow(t, 1.6) * 0.65) * (h * 0.82)
       return { x, y }
     }
 
-    const drawFrame = () => {
+    const draw = () => {
       const w = W(), h = H()
       ctx.save()
       ctx.clearRect(0, 0, w, h)
 
-      /* ── Deep background gradient ── */
-      const bg = ctx.createLinearGradient(0, 0, 0, h)
-      bg.addColorStop(0, '#0c1120')
-      bg.addColorStop(0.5, '#0b0f1a')
-      bg.addColorStop(1, '#07090f')
-      ctx.fillStyle = bg
+      // ── Dark background ──
+      ctx.fillStyle = '#111827'
       ctx.fillRect(0, 0, w, h)
 
       const ox = OX(), oy = OY()
 
-      /* ── Radial glow at origin ── */
-      const radGlow = ctx.createRadialGradient(ox, oy, 0, ox, oy, w * 0.5)
-      radGlow.addColorStop(0, 'rgba(0,230,118,0.06)')
-      radGlow.addColorStop(1, 'transparent')
-      ctx.fillStyle = radGlow
+      // ── Purple center glow ──
+      const glow = ctx.createRadialGradient(w * 0.55, h * 0.4, 0, w * 0.55, h * 0.4, w * 0.6)
+      glow.addColorStop(0,   'rgba(140,40,200,0.5)')
+      glow.addColorStop(0.4, 'rgba(90,15,150,0.3)')
+      glow.addColorStop(1,   'transparent')
+      ctx.fillStyle = glow
       ctx.fillRect(0, 0, w, h)
 
-      /* ── Subtle grid dots ── */
-      ctx.fillStyle = C.gridDot
-      const gapX = w / 10, gapY = h / 7
-      for (let gx = ox; gx < w - 20; gx += gapX) {
-        for (let gy = 20; gy < oy; gy += gapY) {
-          ctx.beginPath()
-          ctx.arc(gx, gy, 1, 0, Math.PI * 2)
-          ctx.fill()
-        }
+      // ── Blue Y-axis dots ──
+      ctx.fillStyle = '#4488ff'
+      for (let i = 0; i < 6; i++) {
+        const dy = (oy * 0.85 / 5) * i + oy * 0.05
+        ctx.beginPath()
+        ctx.arc(ox - 10, dy, 3, 0, Math.PI * 2)
+        ctx.fill()
       }
 
-      /* ── Axis lines ── */
-      ctx.strokeStyle = C.axis
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 8])
-      // Y axis
-      ctx.beginPath(); ctx.moveTo(ox, 10); ctx.lineTo(ox, oy); ctx.stroke()
-      // X axis
-      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(w - 10, oy); ctx.stroke()
-      ctx.setLineDash([])
-
-      /* ── Axis glows ticks ── */
-      const tickColor = 'rgba(0,230,118,0.25)'
-      ctx.fillStyle = tickColor
-      for (let gx = ox; gx < w - 20; gx += gapX) {
-        ctx.fillRect(gx - 0.5, oy, 1, 5)
+      // ── White X-axis dots ──
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'
+      for (let i = 0; i <= 8; i++) {
+        const dx = ox + (i / 8) * (w - ox - 10)
+        ctx.beginPath()
+        ctx.arc(dx, oy + 10, 2.5, 0, Math.PI * 2)
+        ctx.fill()
       }
 
-      /* ─────────────────────────────────── Waiting ── */
+      // ── Faint grid ──
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+      ctx.lineWidth = 0.5
+      for (let i = 1; i < 8; i++) {
+        const gx = ox + (i / 8) * (w - ox)
+        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, oy); ctx.stroke()
+      }
+      for (let i = 1; i < 6; i++) {
+        const gy = (oy / 6) * i
+        ctx.beginPath(); ctx.moveTo(ox, gy); ctx.lineTo(w, gy); ctx.stroke()
+      }
+
+      // ── WAITING ──
       if (isWaiting) {
-        stateRef.current.floatT += 0.035
+        stateRef.current.floatT += 0.03
         const ft = stateRef.current.floatT
-        const px = ox + 40 + Math.sin(ft * 0.4) * 8
-        const py = oy - 35 + Math.sin(ft) * 10
-
-        /* Dashed runway */
-        ctx.setLineDash([10, 14])
-        ctx.strokeStyle = 'rgba(0,230,118,0.15)'
-        ctx.lineWidth = 2
-        ctx.beginPath(); ctx.moveTo(ox, oy - 1); ctx.lineTo(px - 15, oy - 1); ctx.stroke()
-        ctx.setLineDash([])
-
+        const px = ox + 55 + Math.sin(ft * 0.4) * 6
+        const py = oy - 45 + Math.sin(ft) * 8
         drawPlane(ctx, px, py, -0.05, false)
 
-      /* ─────────────────────────────────── Running / Crashed ── */
       } else {
         let m = 1.0
         const flying = isRunning && startTime
 
         if (flying) {
-          const elapsed = Date.now() - startTime
-          m = Math.E ** (0.00006 * elapsed)
-
-          /* Update overlay text directly (zero React re-render) */
+          m = Math.E ** (0.00006 * (Date.now() - startTime))
           if (multiplierRef.current) {
-            const glow = m > 10 ? '#cc44ff' : m > 5 ? '#ffd700' : m > 2 ? '#00e5ff' : '#00e676'
             multiplierRef.current.innerText = `${m.toFixed(2)}x`
-            multiplierRef.current.style.color = glow
-            multiplierRef.current.style.textShadow = `0 0 30px ${glow}88, 0 0 60px ${glow}44`
           }
-          if (statusRef.current) {
-            statusRef.current.innerText = 'FLYING'
-            statusRef.current.className = 'status-flying font-orbitron font-bold text-xs tracking-widest uppercase'
-          }
-
           gameAudio.updateEngine(m)
         } else if (isCrashed) {
           m = lastCrashPoint || 1.0
           if (multiplierRef.current) {
             multiplierRef.current.innerText = `${m.toFixed(2)}x`
-            multiplierRef.current.style.color = '#ff5252'
-            multiplierRef.current.style.textShadow = '0 0 30px #ff175288, 0 0 60px #ff175244'
-          }
-          if (statusRef.current) {
-            statusRef.current.innerText = 'CRASHED'
-            statusRef.current.className = 'status-crashed font-orbitron font-bold text-xs tracking-widest uppercase'
+            multiplierRef.current.style.color = '#ff4444'
           }
         }
 
         const cur = mToPos(m, w, h)
 
-        /* Track path */
+        // Collect path points while flying
         if (flying) {
           const pts = stateRef.current.points
           const last = pts[pts.length - 1]
           if (!last || Math.abs(last.x - cur.x) > 1.2) pts.push({ ...cur })
+
+          // Clear crash animation when newly flying
+          stateRef.current.crashPlane = null
+          stateRef.current.crashDone  = false
+        }
+
+        // ── CRASH FLY-UP: Initialize when crash first detected ──
+        if (isCrashed && !stateRef.current.crashPlane && !stateRef.current.crashDone) {
+          const lastAngle = computeAngle(stateRef.current.points, cur)
+          stateRef.current.crashPlane = {
+            x: cur.x,
+            y: cur.y,
+            // Fly upward-right fast
+            vx:  6 + Math.cos(lastAngle) * 3,
+            vy: -12,                         // strong upward velocity
+            ay:  0.3,                        // slight gravity pulling back
+            angle: lastAngle - 0.6,          // nose tilting up
+            dAngle: -0.04,                   // rotate as it flies
+          }
         }
 
         const pts = stateRef.current.points
-        const lineColor = isCrashed ? C.lineCrash : C.lineFly
-        const fillBase  = isCrashed ? C.fillCrash : C.fillFly
 
+        // ── Draw the curve ──
         if (pts.length > 1) {
-          /* ─ Outer glow stroke ─ */
-          ctx.save()
-          ctx.shadowColor = lineColor
-          ctx.shadowBlur  = isCrashed ? 20 : 25
-          ctx.beginPath()
-          ctx.moveTo(pts[0].x, pts[0].y)
-          for (let i = 1; i < pts.length; i++) {
-            const cp = pts[i - 1], np = pts[i]
-            ctx.quadraticCurveTo(cp.x, cp.y, (cp.x + np.x) / 2, (cp.y + np.y) / 2)
+          const buildPath = () => {
+            ctx.beginPath()
+            ctx.moveTo(ox, oy)
+            for (let i = 0; i < pts.length; i++) {
+              if (i === 0) ctx.lineTo(pts[i].x, pts[i].y)
+              else {
+                const cp = pts[i-1], np = pts[i]
+                ctx.quadraticCurveTo(cp.x, cp.y, (cp.x+np.x)/2, (cp.y+np.y)/2)
+              }
+            }
+            // When crashed, draw to crash position (not animated plane)
+            const endX = stateRef.current.crashPlane ? stateRef.current.crashPlane.x : cur.x
+            const endY = stateRef.current.crashPlane ? stateRef.current.crashPlane.y : cur.y
+            ctx.lineTo(endX, endY)
           }
-          ctx.lineTo(cur.x, cur.y)
-          ctx.strokeStyle = lineColor
-          ctx.lineWidth   = 3
-          ctx.lineJoin    = 'round'
-          ctx.lineCap     = 'round'
-          ctx.stroke()
-          ctx.restore()
 
-          /* ─ Core bright line ─ */
-          ctx.save()
-          ctx.shadowColor = isCrashed ? '#ff4444' : '#88ffcc'
-          ctx.shadowBlur  = 6
-          ctx.beginPath()
-          ctx.moveTo(pts[0].x, pts[0].y)
-          for (let i = 1; i < pts.length; i++) {
-            const cp = pts[i - 1], np = pts[i]
-            ctx.quadraticCurveTo(cp.x, cp.y, (cp.x + np.x) / 2, (cp.y + np.y) / 2)
-          }
-          ctx.lineTo(cur.x, cur.y)
-          ctx.strokeStyle = isCrashed ? '#ff8888' : '#88ffcc'
-          ctx.lineWidth   = 1.5
-          ctx.stroke()
-          ctx.restore()
-
-          /* ─ Fill area under curve ─ */
-          ctx.beginPath()
-          ctx.moveTo(pts[0].x, oy)
-          pts.forEach(p => ctx.lineTo(p.x, p.y))
-          ctx.lineTo(cur.x, cur.y)
-          ctx.lineTo(cur.x, oy)
+          // Fill under curve
+          buildPath()
+          ctx.lineTo(isCrashed ? (stateRef.current.crashPlane?.x || cur.x) : cur.x, oy)
+          ctx.lineTo(ox, oy)
           ctx.closePath()
-          const fill = ctx.createLinearGradient(0, oy - (oy * 0.6), 0, oy)
-          fill.addColorStop(0,   fillBase + '0.35)')
-          fill.addColorStop(0.5, fillBase + '0.15)')
-          fill.addColorStop(1,   fillBase + '0.02)')
+          const fill = ctx.createLinearGradient(0, oy - h * 0.55, 0, oy)
+          fill.addColorStop(0,   isCrashed ? 'rgba(220,0,30,0.35)' : 'rgba(200,0,30,0.45)')
+          fill.addColorStop(0.6, isCrashed ? 'rgba(160,0,20,0.15)' : 'rgba(160,0,20,0.2)')
+          fill.addColorStop(1,   'rgba(100,0,10,0.03)')
           ctx.fillStyle = fill
           ctx.fill()
 
-          /* ─ Glow trail dots along curve ─ */
-          if (flying) {
-            const trailLen = Math.min(8, pts.length)
-            for (let i = pts.length - trailLen; i < pts.length; i++) {
-              const idx   = i - (pts.length - trailLen)
-              const alpha = (idx / trailLen) * 0.5
-              const p = pts[i]
-              ctx.beginPath()
-              ctx.arc(p.x, p.y, 2, 0, Math.PI * 2)
-              ctx.fillStyle = `rgba(0,230,118,${alpha})`
-              ctx.shadowColor = '#00e676'
-              ctx.shadowBlur  = 8
-              ctx.fill()
-              ctx.shadowBlur = 0
-            }
-          }
+          // Glow stroke
+          ctx.save()
+          buildPath()
+          ctx.strokeStyle = isCrashed ? '#cc0000' : '#e8001c'
+          ctx.lineWidth = 3.5
+          ctx.shadowColor = '#ff2200'
+          ctx.shadowBlur = 20
+          ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+          ctx.stroke()
+          ctx.restore()
+
+          // Bright white-red highlight
+          ctx.save()
+          buildPath()
+          ctx.strokeStyle = isCrashed ? '#ff7777' : '#ff4444'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+          ctx.restore()
         }
 
-        /* ─ Plane ─ */
-        const angle = isCrashed
-          ? 0.5
-          : computeAngle(stateRef.current.points, cur)
-        drawPlane(ctx, cur.x, cur.y, angle, isCrashed)
+        // ── PLANE: animate fly-up on crash ──
+        if (isCrashed && stateRef.current.crashPlane) {
+          const cp = stateRef.current.crashPlane
+          // Update position every frame
+          cp.x     += cp.vx
+          cp.y     += cp.vy
+          cp.vy    += cp.ay       // slight gravity
+          cp.angle += cp.dAngle   // rotate nose upward as it flies
+
+          // Draw the flying-away plane
+          drawPlane(ctx, cp.x, cp.y, cp.angle, true)
+
+          // If it went off-screen, mark done (stop animating)
+          if (cp.y < -80 || cp.x > w + 80) {
+            stateRef.current.crashDone  = true
+            stateRef.current.crashPlane = null
+          }
+        } else if (!isCrashed) {
+          // Flying normally
+          const angle = computeAngle(stateRef.current.points, cur)
+          drawPlane(ctx, cur.x, cur.y, angle, false)
+        }
       }
 
       ctx.restore()
-      animRef.current = requestAnimationFrame(drawFrame)
+      animRef.current = requestAnimationFrame(draw)
     }
 
-    drawFrame()
+    draw()
     return () => cancelAnimationFrame(animRef.current)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, startTime, lastCrashPoint])
 
   return (
-    <div className="relative w-full h-full overflow-hidden scanline-overlay">
-      {/* Motion wrapper for screen shake on crash */}
+    <div className="relative w-full h-full overflow-hidden" style={{ background: '#111827' }}>
       <motion.div
-        animate={isCrashed ? {
-          x: [-8, 8, -6, 6, -4, 4, -2, 2, 0],
-          y: [-4, 4, -3, 3, -2, 2, 0],
-        } : {}}
+        animate={isCrashed ? { x: [-8,8,-6,6,-4,4,-2,2,0], y: [-5,5,-4,4,-2,2,0] } : {}}
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="absolute inset-0"
       >
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       </motion.div>
 
-      {/* ── Overlay: multiplier + status ── */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
-           style={{ paddingBottom: '8%' }}>
+      {/* Multiplier overlay */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <AnimatePresence mode="wait">
 
-          {/* WAITING */}
           {isWaiting && (
-            <motion.div
-              key="waiting"
-              initial={{ opacity: 0, scale: 0.85, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
+            <motion.div key="w"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
               className="text-center"
             >
-              <div
-                className="font-orbitron font-bold text-xs tracking-widest uppercase mb-3"
-                style={{ color: '#ffd700', textShadow: '0 0 15px rgba(255,215,0,0.6)' }}
-              >
-                ⏳ WAITING FOR BETS
-              </div>
-              <div
-                className="font-orbitron font-black leading-none"
-                style={{
-                  fontSize: 'clamp(3.5rem, 10vw, 6.5rem)',
-                  color: '#ffd700',
-                  textShadow: '0 0 30px rgba(255,215,0,0.7), 0 0 60px rgba(255,215,0,0.3)',
-                }}
-              >
+              <div style={{
+                fontSize: 'clamp(2.5rem,12vw,5.5rem)', fontWeight: 900, color: '#ffffff',
+                fontFamily: 'Inter, sans-serif', textShadow: '0 2px 30px rgba(255,255,255,0.2)',
+              }}>
                 1.00x
               </div>
               <motion.div
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="mt-3 font-orbitron text-[10px] tracking-[0.3em] uppercase"
-                style={{ color: 'rgba(255,215,0,0.5)' }}
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+                style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginTop: '8px', letterSpacing: '2px' }}
               >
-                PLACE YOUR BET
+                WAITING FOR BETS
               </motion.div>
             </motion.div>
           )}
 
-          {/* CRASHED */}
           {isCrashed && (
-            <motion.div
-              key="crashed"
-              initial={{ scale: 1.4, opacity: 0 }}
-              animate={{ scale: 1,   opacity: 1 }}
+            <motion.div key="c"
+              initial={{ scale: 1.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ type: 'spring', damping: 8, stiffness: 200 }}
+              transition={{ type: 'spring', damping: 10, stiffness: 180 }}
               className="text-center"
             >
               <motion.div
-                animate={{ opacity: [1, 0.7, 1] }}
-                transition={{ duration: 0.5, repeat: 3 }}
-                className="font-orbitron font-black text-sm tracking-widest uppercase mb-2"
-                style={{ color: '#ff5252', textShadow: '0 0 20px rgba(255,82,82,0.8)' }}
-              >
-                💥 FLEW AWAY!
-              </motion.div>
-              <div
-                ref={multiplierRef}
-                className="font-orbitron font-black leading-none"
+                animate={{ opacity: [1, 0.6, 1] }}
+                transition={{ duration: 0.4, repeat: 4 }}
                 style={{
-                  fontSize: 'clamp(3.5rem, 10vw, 6.5rem)',
-                  color: '#ff5252',
-                  textShadow: '0 0 30px rgb(255,23,68), 0 0 60px rgba(255,23,68,0.5)',
+                  color: '#ff4444', fontSize: '14px', fontWeight: 700,
+                  letterSpacing: '3px', marginBottom: '6px',
+                  textShadow: '0 0 15px rgba(255,50,50,0.8)',
                 }}
               >
+                FLEW AWAY!
+              </motion.div>
+              <div ref={multiplierRef} style={{
+                fontSize: 'clamp(2.5rem,12vw,5.5rem)', fontWeight: 900, color: '#ff4444',
+                fontFamily: 'Inter, sans-serif', textShadow: '0 0 30px rgba(255,30,30,0.7)',
+              }}>
                 {(lastCrashPoint || 1).toFixed(2)}x
               </div>
             </motion.div>
           )}
 
-          {/* RUNNING */}
           {isRunning && (
-            <motion.div
-              key="running"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+            <motion.div key="r"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="text-center"
             >
-              <div
-                ref={statusRef}
-                className="status-flying font-orbitron font-bold text-xs tracking-widest uppercase mb-2"
-              >
-                FLYING
-              </div>
-              <div
-                ref={multiplierRef}
-                className="font-orbitron font-black leading-none select-none"
-                style={{
-                  fontSize: 'clamp(3.5rem, 10vw, 6.5rem)',
-                  color: '#00e676',
-                  textShadow: '0 0 30px rgba(0,230,118,0.9), 0 0 60px rgba(0,230,118,0.4)',
-                  letterSpacing: '-0.02em',
-                }}
-              >
+              <div ref={multiplierRef} style={{
+                fontSize: 'clamp(2.5rem,12vw,5.5rem)', fontWeight: 900, color: '#ffffff',
+                fontFamily: 'Inter, sans-serif', textShadow: '0 2px 30px rgba(255,255,255,0.25)',
+              }}>
                 1.00x
               </div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
-
-      {/* Corner accent lines */}
-      <div className="absolute top-0 left-0 w-12 h-12 pointer-events-none opacity-30"
-           style={{ borderTop: '2px solid #00e676', borderLeft: '2px solid #00e676' }} />
-      <div className="absolute top-0 right-0 w-12 h-12 pointer-events-none opacity-30"
-           style={{ borderTop: '2px solid #00e676', borderRight: '2px solid #00e676' }} />
-      <div className="absolute bottom-0 left-0 w-12 h-12 pointer-events-none opacity-30"
-           style={{ borderBottom: '2px solid #00e676', borderLeft: '2px solid #00e676' }} />
     </div>
   )
 }
 
-/* ── Helpers ──────────────────────────────────────────────── */
+// ── Helpers ──────────────────────────────────────────────────
+
 function computeAngle(pts, cur) {
-  if (pts.length < 2) return -0.2
+  if (pts.length < 2) return -0.3
   const prev = pts[pts.length - 2] || pts[pts.length - 1]
   return Math.atan2(cur.y - prev.y, cur.x - prev.x)
 }
@@ -417,98 +363,56 @@ function drawPlane(ctx, cx, cy, angle, crashed) {
   ctx.translate(cx, cy)
   ctx.rotate(angle)
 
-  const main  = crashed ? '#ff5252' : '#00e676'
-  const dark  = crashed ? '#cc1515' : '#008844'
-  const glow  = crashed ? 'rgba(255,82,82,' : 'rgba(0,230,118,'
+  const c = crashed ? '#ff5555' : '#ff2222'
+  const d = crashed ? '#aa1111' : '#880000'
 
-  /* Fuselage */
-  const fuseGrad = ctx.createLinearGradient(-26, -5, 26, 5)
-  fuseGrad.addColorStop(0, dark)
-  fuseGrad.addColorStop(0.4, main)
-  fuseGrad.addColorStop(1, dark)
-  ctx.fillStyle = fuseGrad
+  // Fuselage
   ctx.beginPath()
-  ctx.ellipse(0, 0, 25, 6.5, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, 0, 22, 5.5, 0, 0, Math.PI * 2)
+  ctx.fillStyle = c
+  ctx.shadowColor = '#ff0000'
+  ctx.shadowBlur = crashed ? 15 : 8
   ctx.fill()
+  ctx.shadowBlur = 0
 
-  /* Nose */
+  // Nose
   ctx.beginPath()
-  ctx.moveTo(25, 0)
-  ctx.lineTo(40, -1.5)
-  ctx.lineTo(40, 1.5)
-  ctx.closePath()
-  ctx.fillStyle = crashed ? '#ff8888' : '#66ffaa'
-  ctx.fill()
+  ctx.moveTo(22, 0); ctx.lineTo(36, -1.5); ctx.lineTo(36, 1.5); ctx.closePath()
+  ctx.fillStyle = '#ff8888'; ctx.fill()
 
-  /* Main wing */
+  // Main wing
   ctx.beginPath()
-  ctx.moveTo(4, 0)
-  ctx.lineTo(-3, -20)
-  ctx.lineTo(-11, -20)
-  ctx.lineTo(-5, 0)
-  ctx.closePath()
-  const wGrad = ctx.createLinearGradient(0, -20, 0, 0)
-  wGrad.addColorStop(0, dark)
-  wGrad.addColorStop(1, main)
-  ctx.fillStyle = wGrad
-  ctx.fill()
+  ctx.moveTo(2, 0); ctx.lineTo(-4, -17); ctx.lineTo(-10, -17); ctx.lineTo(-4, 0); ctx.closePath()
+  ctx.fillStyle = d; ctx.fill()
 
-  /* Lower winglet */
+  // Lower winglet
   ctx.beginPath()
-  ctx.moveTo(4, 0)
-  ctx.lineTo(0, 13)
-  ctx.lineTo(-6, 13)
-  ctx.lineTo(-5, 0)
-  ctx.closePath()
-  ctx.fillStyle = dark
-  ctx.fill()
+  ctx.moveTo(2, 0); ctx.lineTo(-1, 11); ctx.lineTo(-6, 11); ctx.lineTo(-4, 0); ctx.closePath()
+  ctx.fillStyle = d; ctx.fill()
 
-  /* Tail fin */
+  // Tail fin
   ctx.beginPath()
-  ctx.moveTo(-17, 0)
-  ctx.lineTo(-24, -12)
-  ctx.lineTo(-20, -12)
-  ctx.lineTo(-13, 0)
-  ctx.closePath()
-  ctx.fillStyle = main
-  ctx.fill()
+  ctx.moveTo(-14, 0); ctx.lineTo(-20, -10); ctx.lineTo(-17, -10); ctx.lineTo(-11, 0); ctx.closePath()
+  ctx.fillStyle = c; ctx.fill()
 
-  /* Tail stabilizer */
-  ctx.beginPath()
-  ctx.moveTo(-20, 3)
-  ctx.lineTo(-26, 9)
-  ctx.lineTo(-23, 7)
-  ctx.lineTo(-18, 3)
-  ctx.closePath()
-  ctx.fillStyle = dark
-  ctx.fill()
-
-  /* Engine glow when flying */
+  // Engine exhaust (only when flying)
   if (!crashed) {
-    const exhaustLen = 14 + Math.random() * 6
-    const exGrad = ctx.createLinearGradient(-26, 0, -26 - exhaustLen, 0)
-    exGrad.addColorStop(0, 'rgba(0,230,118,0.9)')
-    exGrad.addColorStop(0.4, 'rgba(0,200,255,0.6)')
-    exGrad.addColorStop(1, 'transparent')
+    const len = 18 + Math.random() * 8
+    const eg = ctx.createLinearGradient(-22, 0, -22 - len, 0)
+    eg.addColorStop(0,   'rgba(255,130,0,0.95)')
+    eg.addColorStop(0.4, 'rgba(255,200,0,0.55)')
+    eg.addColorStop(1,   'transparent')
     ctx.beginPath()
-    ctx.moveTo(-26, -3)
-    ctx.lineTo(-26 - exhaustLen, 0)
-    ctx.lineTo(-26, 3)
-    ctx.closePath()
-    ctx.fillStyle = exGrad
-    ctx.shadowColor = '#00e676'
-    ctx.shadowBlur  = 10
-    ctx.fill()
-    ctx.shadowBlur = 0
+    ctx.moveTo(-22, -4); ctx.lineTo(-22 - len, 0); ctx.lineTo(-22, 4); ctx.closePath()
+    ctx.fillStyle = eg
+    ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 12
+    ctx.fill(); ctx.shadowBlur = 0
 
-    /* Engine core */
-    ctx.beginPath()
-    ctx.arc(-26, 0, 3.5, 0, Math.PI * 2)
+    // Bright engine core
+    ctx.beginPath(); ctx.arc(-22, 0, 3, 0, Math.PI * 2)
     ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = '#00ffaa'
-    ctx.shadowBlur  = 12
-    ctx.fill()
-    ctx.shadowBlur = 0
+    ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 14
+    ctx.fill(); ctx.shadowBlur = 0
   }
 
   ctx.restore()
